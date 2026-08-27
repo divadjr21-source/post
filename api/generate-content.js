@@ -20,7 +20,7 @@ Responda SOMENTE em JSON válido, sem markdown, sem crases, sem texto antes ou d
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_API_KEY}`,
+      ``https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${process.env.GOOGLE_API_KEY},
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
