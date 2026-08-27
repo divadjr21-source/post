@@ -122,6 +122,17 @@ function fileToBase64(file) {
   });
 }
 
+// Monta o mesmo texto de instrução que a API usa, mas pra você copiar e colar
+// manualmente em gemini.google.com ou chatgpt.com junto com a foto.
+function buildImagePrompt({ theme, adjust, brand, aiRender }) {
+  const instructions = [];
+  if (adjust) instructions.push('Melhore cor, contraste, nitidez e iluminação da foto, mantendo um resultado natural e realista.');
+  if (brand) instructions.push('Adicione uma identidade visual discreta e profissional de marca de segurança eletrônica: uma faixa/rodapé sutil com boa legibilidade para o nome "RD Solutions", em tons de azul e laranja, sem cobrir o assunto principal da foto.');
+  if (aiRender) instructions.push(`Dê um acabamento premium e elaborado à imagem, coerente com o tema "${theme || 'segurança eletrônica'}", como se fosse uma peça publicitária profissional, mas preservando fielmente o conteúdo original da foto (não invente elementos que não existem na imagem).`);
+  if (instructions.length === 0) instructions.push('Melhore a qualidade geral da foto para uso profissional.');
+  return `Edite esta foto para uso em post de rede social de uma empresa de segurança eletrônica. Instruções: ${instructions.join(' ')}`;
+}
+
 // ===== Chamadas de IA (via funções serverless /api) =====
 async function callGenerateContent(theme) {
   const res = await fetch('/api/generate-content', {
@@ -439,6 +450,7 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
   const [premiumAI, setPremiumAI] = useState(false);
   const [treatingImage, setTreatingImage] = useState(false);
   const [imageError, setImageError] = useState('');
+  const [promptCopied, setPromptCopied] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -507,6 +519,22 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
     } finally {
       setTreatingImage(false);
     }
+  };
+
+  // Usa o arquivo selecionado (ex: a imagem já baixada do Gemini/ChatGPT) direto como imagem final,
+  // sem chamar a API de tratamento.
+  const handleUseFileDirectly = async () => {
+    if (!imageFile) return;
+    const base64 = await fileToBase64(imageFile);
+    setMediaUrl(`data:${imageFile.type};base64,${base64}`);
+  };
+
+  // Copia o prompt pronto pra colar manualmente no site do Gemini/ChatGPT junto com a foto
+  const handleCopyPrompt = () => {
+    const prompt = buildImagePrompt({ theme: title, adjust: premiumAdjust, brand: premiumBrand, aiRender: premiumAI });
+    navigator.clipboard.writeText(prompt);
+    setPromptCopied(true);
+    setTimeout(() => setPromptCopied(false), 2000);
   };
 
   const handleSubmit = (status) => {
@@ -614,9 +642,35 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
               className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all"
             >
               {treatingImage ? <Icons.Loader /> : <Icons.Sparkles />}
-              {treatingImage ? 'Tratando imagem com IA...' : 'Tratar imagem com IA'}
+              {treatingImage ? 'Tratando imagem com IA...' : 'Tratar imagem com IA (automático)'}
             </button>
             {imageError && <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1.5"><Icons.Alert /> {imageError}</p>}
+
+            <div className="mt-3 p-3 rounded-xl bg-slate-800/60 border border-slate-700">
+              <p className="text-xs text-slate-400 mb-2">
+                Se a cota da IA estiver esgotada, copie o prompt abaixo e cole junto com a foto em{' '}
+                <a href="https://gemini.google.com" target="_blank" rel="noopener" className="text-blue-400 hover:underline">gemini.google.com</a>{' '}
+                ou <a href="https://chatgpt.com" target="_blank" rel="noopener" className="text-blue-400 hover:underline">chatgpt.com</a>.
+                Depois baixe a imagem gerada e envie ela pelo botão de upload acima.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyPrompt}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-medium transition-colors"
+                >
+                  {promptCopied ? <Icons.Check /> : <Icons.Sparkles />}
+                  {promptCopied ? 'Copiado!' : 'Copiar prompt'}
+                </button>
+                <button
+                  onClick={handleUseFileDirectly}
+                  disabled={!imageFile}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-100 text-xs font-medium transition-colors"
+                >
+                  <Icons.Upload /> Usar foto selecionada
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2">Selecione a foto já tratada (baixada do site) no campo acima e clique em "Usar foto selecionada".</p>
+            </div>
 
             {mediaUrl && <img src={mediaUrl} alt="Preview" className="mt-3 w-full h-40 object-cover rounded-xl border border-slate-700" onError={e => e.target.style.display = 'none'} />}
           </div>
