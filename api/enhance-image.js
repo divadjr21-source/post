@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
-  const { image, mimeType, theme, adjust, brand, aiRender } = req.body || {};
+  const { image, mimeType, theme, adjust, brand, aiRender, format } = req.body || {};
   if (!image || !mimeType) {
     return res.status(400).json({ error: 'Imagem não informada' });
   }
@@ -22,6 +22,7 @@ export default async function handler(req, res) {
   if (adjust) instructions.push('Melhore cor, contraste, nitidez e iluminação da foto, mantendo um resultado natural e realista.');
   if (brand) instructions.push('Adicione uma identidade visual discreta e profissional de marca de segurança eletrônica: uma faixa/rodapé sutil com boa legibilidade para o nome "RD Solutions", em tons de azul e laranja, sem cobrir o assunto principal da foto.');
   if (aiRender) instructions.push(`Dê um acabamento premium e elaborado à imagem, coerente com o tema "${theme || 'segurança eletrônica'}", como se fosse uma peça publicitária profissional, mas preservando fielmente o conteúdo original da foto (não invente elementos que não existem na imagem).`);
+  if (format === 'stories') instructions.push('Enquadre e recorte a imagem no formato vertical 9:16 (1080x1920), ideal para Stories/Reels do Instagram, mantendo o assunto principal centralizado.');
 
   if (instructions.length === 0) {
     // Nada marcado: devolve a imagem original sem chamar a IA.

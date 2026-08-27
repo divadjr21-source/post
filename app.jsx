@@ -124,13 +124,26 @@ function fileToBase64(file) {
 
 // Monta o mesmo texto de instrução que a API usa, mas pra você copiar e colar
 // manualmente em gemini.google.com ou chatgpt.com junto com a foto.
-function buildImagePrompt({ theme, adjust, brand, aiRender }) {
+function buildImagePrompt({ theme, adjust, brand, aiRender, format }) {
   const instructions = [];
   if (adjust) instructions.push('Melhore cor, contraste, nitidez e iluminação da foto, mantendo um resultado natural e realista.');
   if (brand) instructions.push('Adicione uma identidade visual discreta e profissional de marca de segurança eletrônica: uma faixa/rodapé sutil com boa legibilidade para o nome "RD Solutions", em tons de azul e laranja, sem cobrir o assunto principal da foto.');
   if (aiRender) instructions.push(`Dê um acabamento premium e elaborado à imagem, coerente com o tema "${theme || 'segurança eletrônica'}", como se fosse uma peça publicitária profissional, mas preservando fielmente o conteúdo original da foto (não invente elementos que não existem na imagem).`);
+  if (format === 'stories') instructions.push('Enquadre e recorte a imagem no formato vertical 9:16 (1080x1920), ideal para Stories/Reels do Instagram, mantendo o assunto principal centralizado e sem cortar partes importantes.');
+  else instructions.push('Mantenha um enquadramento adequado para o feed do Instagram (formato quadrado ou levemente retangular).');
   if (instructions.length === 0) instructions.push('Melhore a qualidade geral da foto para uso profissional.');
   return `Edite esta foto para uso em post de rede social de uma empresa de segurança eletrônica. Instruções: ${instructions.join(' ')}`;
+}
+
+// Monta um prompt pra colar manualmente numa IA de vídeo (Gemini, Runway, etc.)
+function buildVideoPrompt({ theme, brand, format }) {
+  const instructions = [];
+  instructions.push('Corte/ajuste o vídeo para uma duração curta e dinâmica, ideal para redes sociais.');
+  if (brand) instructions.push('Adicione um texto discreto com "RD Solutions" no rodapé, em tons de azul e laranja, sem cobrir o conteúdo principal.');
+  if (format === 'stories') instructions.push('Ajuste o vídeo para o formato vertical 9:16 (1080x1920), ideal para Stories/Reels do Instagram.');
+  else instructions.push('Mantenha o vídeo em um formato adequado para o feed do Instagram.');
+  const tema = theme ? ` sobre o tema "${theme}"` : '';
+  return `Edite este vídeo${tema} para uso em post de rede social de uma empresa de segurança eletrônica. Instruções: ${instructions.join(' ')}`;
 }
 
 // ===== Chamadas de IA (via funções serverless /api) =====
@@ -445,6 +458,7 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
 
   // Estado da imagem: arquivo local + opções "premium" + estado de tratamento
   const [imageFile, setImageFile] = useState(null);
+  const [format, setFormat] = useState('feed'); // 'feed' | 'stories' — vale para imagem e vídeo
   const [premiumAdjust, setPremiumAdjust] = useState(true);
   const [premiumBrand, setPremiumBrand] = useState(true);
   const [premiumAI, setPremiumAI] = useState(false);
@@ -453,16 +467,26 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
   const [promptCopied, setPromptCopied] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Estado do vídeo (mesmo espírito da imagem: sem chamada automática de IA — copia prompt manual)
+  const [videoFile, setVideoFile] = useState(null);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoPromptCopied, setVideoPromptCopied] = useState(false);
+  const videoInputRef = useRef(null);
+
   useEffect(() => {
     if (!isOpen) return;
     setGenError('');
     setImageError('');
     setImageFile(null);
+    setVideoFile(null);
+    setVideoUrl('');
     if (editPost) {
       setTitle(editPost.title);
       setCaption(editPost.caption_instagram);
       setMessage(editPost.message_whatsapp);
       setMediaUrl(editPost.media_url);
+      setVideoUrl(editPost.video_url || '');
+      setFormat(editPost.format || 'feed');
       setScheduledAt(editPost.scheduled_at.slice(0, 16));
       setTargetInstagram(editPost.target_instagram);
       setTargetWhatsapp(editPost.target_whatsapp);
@@ -474,6 +498,7 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
       setCaption('');
       setMessage('');
       setMediaUrl('');
+      setFormat('feed');
       setScheduledAt(base.toISOString().slice(0, 16));
       setTargetInstagram(true);
       setTargetWhatsapp(true);
@@ -512,6 +537,7 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
         adjust: premiumAdjust,
         brand: premiumBrand,
         aiRender: premiumAI,
+        format,
       });
       setMediaUrl(dataUrl);
     } catch (e) {
@@ -531,10 +557,25 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
 
   // Copia o prompt pronto pra colar manualmente no site do Gemini/ChatGPT junto com a foto
   const handleCopyPrompt = () => {
-    const prompt = buildImagePrompt({ theme: title, adjust: premiumAdjust, brand: premiumBrand, aiRender: premiumAI });
+    const prompt = buildImagePrompt({ theme: title, adjust: premiumAdjust, brand: premiumBrand, aiRender: premiumAI, format });
     navigator.clipboard.writeText(prompt);
     setPromptCopied(true);
     setTimeout(() => setPromptCopied(false), 2000);
+  };
+
+  // Copia o prompt pronto pra colar manualmente numa IA de vídeo, junto com o arquivo de vídeo
+  const handleCopyVideoPrompt = () => {
+    const prompt = buildVideoPrompt({ theme: title, brand: premiumBrand, format });
+    navigator.clipboard.writeText(prompt);
+    setVideoPromptCopied(true);
+    setTimeout(() => setVideoPromptCopied(false), 2000);
+  };
+
+  // Usa o vídeo selecionado (ex: já editado e baixado da IA) direto como vídeo final do post
+  const handleUseVideoDirectly = async () => {
+    if (!videoFile) return;
+    const base64 = await fileToBase64(videoFile);
+    setVideoUrl(`data:${videoFile.type};base64,${base64}`);
   };
 
   const handleSubmit = (status) => {
@@ -544,6 +585,8 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
       caption_instagram: caption,
       message_whatsapp: message,
       media_url: mediaUrl,
+      video_url: videoUrl,
+      format,
       scheduled_at: new Date(scheduledAt).toISOString(),
       status,
       target_instagram: targetInstagram,
@@ -602,6 +645,21 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
               placeholder="A IA preencherá aqui a mensagem direta para o WhatsApp..."
               className="w-full px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none"
             />
+          </div>
+
+          {/* ===== Formato: Feed ou Stories ===== */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Formato</label>
+            <div className="flex items-center gap-3">
+              <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-colors ${format === 'feed' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'}`}>
+                <input type="radio" name="format" value="feed" checked={format === 'feed'} onChange={() => setFormat('feed')} className="hidden" />
+                <Icons.Image /> Feed do Instagram
+              </label>
+              <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-colors ${format === 'stories' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'}`}>
+                <input type="radio" name="format" value="stories" checked={format === 'stories'} onChange={() => setFormat('stories')} className="hidden" />
+                <Icons.Sparkles /> Stories (9:16)
+              </label>
+            </div>
           </div>
 
           {/* ===== Imagem: upload + tratamento premium por IA ===== */}
@@ -673,6 +731,50 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
             </div>
 
             {mediaUrl && <img src={mediaUrl} alt="Preview" className="mt-3 w-full h-40 object-cover rounded-xl border border-slate-700" onError={e => e.target.style.display = 'none'} />}
+          </div>
+
+          {/* ===== Vídeo (opcional): mesmo fluxo de prompt manual da imagem ===== */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Vídeo do Post (opcional)</label>
+
+            <div
+              onClick={() => videoInputRef.current.click()}
+              className="cursor-pointer rounded-xl border-2 border-dashed border-slate-700 hover:border-blue-500/50 transition-colors p-4 flex items-center gap-3 bg-slate-800/40"
+            >
+              <span className="p-2 rounded-lg bg-slate-800 text-slate-400"><Icons.Upload /></span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-slate-300 truncate">{videoFile ? videoFile.name : 'Clique para escolher um vídeo curto'}</p>
+                <p className="text-xs text-slate-500">MP4 — ideal até 30-60s</p>
+              </div>
+            </div>
+            <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={e => setVideoFile(e.target.files[0] || null)} />
+
+            <div className="mt-3 p-3 rounded-xl bg-slate-800/60 border border-slate-700">
+              <p className="text-xs text-slate-400 mb-2">
+                Vídeo é pesado demais para tratar automaticamente aqui. Copie o prompt, cole junto com o vídeo em{' '}
+                <a href="https://gemini.google.com" target="_blank" rel="noopener" className="text-blue-400 hover:underline">gemini.google.com</a>{' '}
+                (ou outra IA de vídeo de sua preferência), baixe o resultado e selecione ele acima.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyVideoPrompt}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-medium transition-colors"
+                >
+                  {videoPromptCopied ? <Icons.Check /> : <Icons.Sparkles />}
+                  {videoPromptCopied ? 'Copiado!' : 'Copiar prompt'}
+                </button>
+                <button
+                  onClick={handleUseVideoDirectly}
+                  disabled={!videoFile}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-100 text-xs font-medium transition-colors"
+                >
+                  <Icons.Upload /> Usar vídeo selecionado
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2">Selecione o vídeo já editado (baixado do site) no campo acima e clique em "Usar vídeo selecionado".</p>
+            </div>
+
+            {videoUrl && <video src={videoUrl} controls className="mt-3 w-full h-40 object-cover rounded-xl border border-slate-700" />}
           </div>
 
           <div>
