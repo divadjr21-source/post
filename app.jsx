@@ -295,7 +295,7 @@ function DashboardView({ posts, onNewPost, onEdit, onDelete }) {
           <h2 className="text-2xl font-bold text-slate-100">Dashboard</h2>
           <p className="text-slate-400 text-sm mt-1">Visão geral das postagens da RD Solutions.</p>
         </div>
-        <button onClick={onNewPost} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white text-sm font-semibold shadow-lg shadow-blue-900/30 transition-all">
+        <button onClick={() => onNewPost()} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white text-sm font-semibold shadow-lg shadow-blue-900/30 transition-all">
           <Icons.Plus />
           Novo Post com IA
         </button>
@@ -316,7 +316,7 @@ function DashboardView({ posts, onNewPost, onEdit, onDelete }) {
         {recentPosts.length === 0 ? (
           <div className="glass rounded-2xl p-10 text-center">
             <p className="text-slate-400">Nenhuma postagem encontrada.</p>
-            <button onClick={onNewPost} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium"><Icons.Plus /> Criar primeiro post</button>
+            <button onClick={() => onNewPost()} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium"><Icons.Plus /> Criar primeiro post</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -491,9 +491,9 @@ function PostModal({ isOpen, onClose, initialDate, editPost, onSave }) {
       setTargetInstagram(editPost.target_instagram);
       setTargetWhatsapp(editPost.target_whatsapp);
     } else {
-      const base = initialDate ? new Date(initialDate) : new Date();
+      const base = (initialDate instanceof Date && !isNaN(initialDate)) ? new Date(initialDate) : new Date();
       base.setMinutes(0, 0, 0);
-      if (!initialDate) base.setHours(base.getHours() + 1);
+      if (!(initialDate instanceof Date)) base.setHours(base.getHours() + 1);
       setTitle('');
       setCaption('');
       setMessage('');
