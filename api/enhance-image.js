@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   // Monta as instruções conforme o que o usuário marcou.
   const instructions = [];
   if (adjust) instructions.push('Melhore cor, contraste, nitidez e iluminação da foto, mantendo um resultado natural e realista.');
-  if (brand) instructions.push('Adicione uma identidade visual discreta e profissional de marca de segurança eletrônica: uma faixa/rodapé sutil com boa legibilidade para o nome "RD Solutions", em tons de azul e laranja, sem cobrir o assunto principal da foto.');
+  if (brand) instructions.push(`No rodapé da imagem (área do chão/parede inferior), adicione um banner discreto na cor azul-escura contendo o logotipo "RD Solutions" em branco e laranja, com o slogan "Segurança Inteligente" logo abaixo em letras menores. O banner deve ser sutil, com boa legibilidade, sem cobrir o assunto principal da foto.`);
   if (aiRender) instructions.push(`Dê um acabamento premium e elaborado à imagem, coerente com o tema "${theme || 'segurança eletrônica'}", como se fosse uma peça publicitária profissional, mas preservando fielmente o conteúdo original da foto (não invente elementos que não existem na imagem).`);
   if (format === 'stories') instructions.push('Enquadre e recorte a imagem no formato vertical 9:16 (1080x1920), ideal para Stories/Reels do Instagram, mantendo o assunto principal centralizado.');
 
